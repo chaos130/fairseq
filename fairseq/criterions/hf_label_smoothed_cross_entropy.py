@@ -78,6 +78,7 @@ class HFLabelSmoothedCrossEntropyCriterion(FairseqCriterion):
         3) logging outputs to display while training
         """
         net_output = model(**sample["net_input"])
+        #print(f'net_output:{net_output}')
         loss, nll_loss = self.compute_loss(model, net_output, sample, reduce=reduce)
         rrhf_loss = self.compute_rrhf_loss(model, net_output, sample, reduce=reduce)
         sample_size = (
@@ -109,10 +110,10 @@ class HFLabelSmoothedCrossEntropyCriterion(FairseqCriterion):
 
         if target.dim() == lprobs.dim() - 1:
             target = target.unsqueeze(-1)
-        print(f'probs:{lprobs}, {lprobs.size()}')
-        print(f'target:{target}, {target.size()}')
+        #print(f'probs:{lprobs}, {lprobs.size()}')
+        #print(f'target:{target}, {target.size()}')
         sent_probs = lprobs.gather(dim=-1, index=target)
-        print(f'sent_probs:{sent_probs}, {sent_probs.size()}')
+        #print(f'sent_probs:{sent_probs}, {sent_probs.size()}')
 
         sent_length = None
         if ignore_index is not None:
@@ -120,13 +121,13 @@ class HFLabelSmoothedCrossEntropyCriterion(FairseqCriterion):
             # print(f'pad_mask:{pad_mask}, {pad_mask.size()}')
 
             sent_probs.masked_fill_(pad_mask, 0.0)
-        print(f'sent_probs:{sent_probs}, {sent_probs.size()}')
+        #print(f'sent_probs:{sent_probs}, {sent_probs.size()}')
         
         sent_probs = sent_probs.squeeze(-1).sum(dim=-1)
 
         if sent_length is not None:
             sent_length = sent_probs / sent_length ** length_penalty
-        print(f'sent_probs:{sent_probs}, {sent_probs.size()}')
+        #rint(f'sent_probs:{sent_probs}, {sent_probs.size()}')
 
         return sent_probs
 

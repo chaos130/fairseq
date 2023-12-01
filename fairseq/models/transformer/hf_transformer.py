@@ -762,7 +762,7 @@ class TransformerDecoderBase(FairseqIncrementalDecoder):
         hf_extra_list = []
         if hf_prev_output_token_list is not None:
             for hf_prev_output_tokens in hf_prev_output_token_list:
-                print(f'hf_prev_output_token:{hf_prev_output_tokens}')
+                # print(f'hf_prev_output_token:{hf_prev_output_tokens}')
                 hf_x, hf_extra = self.extract_features(
                         hf_prev_output_tokens,
                         encoder_out=encoder_out,
