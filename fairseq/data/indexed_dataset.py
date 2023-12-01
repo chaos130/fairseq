@@ -17,7 +17,7 @@ from fairseq.data.huffman import HuffmanMMapIndexedDataset, HuffmanMMapIndex
 from . import FairseqDataset
 
 from typing import Union
-
+import json
 
 def best_fitting_int_dtype(
     max_int_to_represent,
@@ -74,7 +74,7 @@ def make_builder(out_file, impl, vocab_size=None):
         return IndexedDatasetBuilder(out_file)
 
 
-def make_dataset(path, impl, fix_lua_indexing=False, dictionary=None):
+def make_dataset(path, impl, fix_lua_indexing=False, dictionary=None, other_dict=None):
     if impl == "raw" and IndexedRawTextDataset.exists(path):
         assert dictionary is not None
         return IndexedRawTextDataset(path, dictionary)
@@ -90,6 +90,10 @@ def make_dataset(path, impl, fix_lua_indexing=False, dictionary=None):
         return EncodedFastaDataset(path, dictionary)
     elif impl == "huffman" and HuffmanMMapIndexedDataset.exists(path):
         return HuffmanMMapIndexedDataset(path)
+    elif impl == 'raw_json':
+        assert dictionary is not None
+        assert other_dict is not None
+        return IndexedRawJsonTextDataset(path,dictionary, other_dict=other_dict)
     return None
 
 
@@ -262,7 +266,78 @@ class IndexedCachedDataset(IndexedDataset):
             item -= 1  # subtract 1 for 0-based indexing
         return item
 
+# new code
+class IndexedRawJsonTextDataset(FairseqDataset):
+    """Takes a text file as input and binarizes it in memory at instantiation.
+    Original lines are also kept in memory
+    Other_dict is used to encode tgt_List and src_line in json in parallel 
+    """
+    
 
+    def __init__(self, path, dictionary, append_eos=True, reverse_order=False, other_dict=None):
+        self.tokens_list=[]
+        self.lines = []
+        self.sizes =[]
+        self.append_eos = append_eos
+        self.reverse_order = reverse_order
+        self.read_data(path, dictionary, other_dict)
+        self.size = len(self.tokens_list)
+
+
+    def read_data(self, path, dictionary, tgt_dict):
+        with open(path, 'r', encoding='utf-8') as f:
+            datas = json.load(f)
+            for data_item in datas:
+                src_line = data_item['src']
+                tgt_list = data_item['tgt']
+                score_list = data_item['score']
+
+
+                self.lines.append((src_line.strip('\n'), tgt_list))
+                src_tokens = dictionary.encode_line(
+                        src_line, add_if_not_exist=False,
+                        append_eos=self.append_eos, reverse_order=self.reverse_order,
+                        ).long()
+
+
+                tgt_tokens = [ tgt_dict.encode_line(tgt_item, add_if_not_exist=False,
+                                               append_eos=self.append_eos, reverse_order=self.reverse_order).long()
+                                               for tgt_item in tgt_list ]
+                tgt_scores = [float(score_item) for score_item in score_list]
+                
+                self.tokens_list.append((src_tokens, tgt_tokens, tgt_scores))
+                self.sizes.append((len(src_tokens), len(tgt_tokens[0])))
+
+        self.sizes = np.array(self.sizes)
+
+    def check_index(self,i):
+        if i < 0 or i >= self.size:
+            raise IndexError('index out of range')
+    @lru_cache(maxsize=8)
+    def __getitem__(self,i):
+        self.check_index(i)
+        return self.tokens_list[i]
+
+    def get_origianl_text(self,i):
+        self.check_index(i)
+        return self.lines[i]
+
+    def __del__(self):
+        pass
+
+    def __len__(self):
+        return self.size
+
+    def num_tokens(self, index):
+        return self.sizes[index][0]
+
+    def size(self, index):
+        return self.sizes[index]
+
+    @staticmethod
+    def exists(path):
+        return os.path.exists(path)
+ 
 class IndexedRawTextDataset(FairseqDataset):
     """Takes a text file as input and binarizes it in memory at instantiation.
     Original lines are also kept in memory"""

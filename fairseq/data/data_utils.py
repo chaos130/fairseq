@@ -72,7 +72,7 @@ def collate_tokens(
 
 
 def load_indexed_dataset(
-    path, dictionary=None, dataset_impl=None, combine=False, default="cached"
+    path, dictionary=None, dataset_impl=None, combine=False, default="cached", other_dict=None
 ):
     """A helper function for loading indexed datasets.
 
@@ -89,6 +89,17 @@ def load_indexed_dataset(
     """
     import fairseq.data.indexed_dataset as indexed_dataset
     from fairseq.data.concat_dataset import ConcatDataset
+
+    if dataset_impl == 'raw_json':
+        assert other_dict is not None, f'Error: other dict is None'
+
+        dataset = indexed_dataset.make_dataset(
+                path,
+                impl=dataset_impl,
+                fix_lua_indexing=True,
+                dictionary=dictionary,
+                other_dict=other_dict)
+        return dataset
 
     datasets = []
     for k in itertools.count():

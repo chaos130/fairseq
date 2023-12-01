@@ -28,6 +28,7 @@ from .indexed_dataset import (
     MMapIndexedDataset,
 )
 from .language_pair_dataset import LanguagePairDataset
+from .language_pair_rrhf_dataset import LanguagePairRRHFDataset
 from .list_dataset import ListDataset
 from .lm_context_window_dataset import LMContextWindowDataset
 from .lru_cache_dataset import LRUCacheDataset
