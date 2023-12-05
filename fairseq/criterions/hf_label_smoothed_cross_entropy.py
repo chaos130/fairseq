@@ -121,12 +121,13 @@ class HFLabelSmoothedCrossEntropyCriterion(FairseqCriterion):
             # print(f'pad_mask:{pad_mask}, {pad_mask.size()}')
 
             sent_probs.masked_fill_(pad_mask, 0.0)
-        #print(f'sent_probs:{sent_probs}, {sent_probs.size()}')
+            #print(f'sent_probs:{sent_probs}, {sent_probs.size()}')
+            sent_length = torch.sum(~pad_mask.squeeze(-1), dim=-1)
         
         sent_probs = sent_probs.squeeze(-1).sum(dim=-1)
 
         if sent_length is not None:
-            sent_length = sent_probs / sent_length ** length_penalty
+            sent_probs = sent_probs / sent_length ** length_penalty
         #rint(f'sent_probs:{sent_probs}, {sent_probs.size()}')
 
         return sent_probs

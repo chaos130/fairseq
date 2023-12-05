@@ -159,7 +159,6 @@ def collate(
         )
     if hf_prev_output_token_list is not None:
         batch["net_input"]["hf_prev_output_token_list"] = hf_prev_output_token_list
-        print(f'hf_prev_output_token_list:{hf_prev_output_token_list}')
         batch["hf_target_list"] = hf_target_list
         batch["hf_score_list"] = hf_score_list
 
