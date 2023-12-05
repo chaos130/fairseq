@@ -170,6 +170,32 @@ class HFLabelSmoothedCrossEntropyCriterion(FairseqCriterion):
 
         return rrhf_loss 
 
+    def compute_dpo_loss(self, model, net_output, sample, reduce=True, beta=0.1):
+        hf_logit_list = net_output[2]
+        hf_num = len(hf_logit_list)
+        hf_score_list = sample['hf_score_list'] # the log_prob caculated by the SFT model
+        hf_target_list = sample['hf_target_list']
+        assert hf_num == 2, hf_num
+
+        sent_prob_list = []
+        for hf_logit, hf_target in zip(hf_logit_list, hf_target_list):
+            sent_prob = self.compute_sentence_prob(hf_logit, hf_target, self.padding_idx)
+            sent_prob_list.append(sent_prob)
+
+        model_scores = torch.stack(sent_prob_list, 0)
+        hf_scores = torch.stack(hf_score_list, 0)
+
+        model_scores = model_scores.transpose(0, 1)
+        hf_scores = hf_scores.transpose(0, 1)
+
+        dpo_loss = 0.0
+        for i in range(model_scores.shape[0]):
+            pi_logratios = model_scores[i][0] - model_scores[i][1]
+            ref_logratios = hf_scores[i][0] - hf_scores[i][0]
+            dpo_loss += -F.logsigmoid(beta * (pi_logratios - ref_logratios))
+
+        return dpo_loss
+
 
     def get_lprobs_and_target(self, model, net_output, sample):
         lprobs = model.get_normalized_probs(net_output, log_probs=True)
