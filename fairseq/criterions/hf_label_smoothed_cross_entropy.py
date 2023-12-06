@@ -104,7 +104,7 @@ class HFLabelSmoothedCrossEntropyCriterion(FairseqCriterion):
         else:
             return utils.softmax(logits, dim=-1, onnx_trace=False)
 
-    def compute_sentence_probs(self, logits, target, ignore_index=None, length_penalty=1.0):
+    def compute_sentence_probs(self, logits, target, ignore_index=None, length_penalty=0.6):
 
         lprobs = self.compute_normalized_probs(logits, log_probs=True)
 
@@ -135,6 +135,7 @@ class HFLabelSmoothedCrossEntropyCriterion(FairseqCriterion):
     def compute_rrhf_loss(self, model, net_output, sample, reduce=True):
         hf_logit_list = net_output[2]
         hf_num = len(hf_logit_list)
+        # print(f'hf_num:{hf_num}')
         hf_score_list = sample['hf_score_list']
         hf_target_list = sample['hf_target_list']
 
