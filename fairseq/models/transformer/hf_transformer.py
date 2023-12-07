@@ -717,7 +717,7 @@ class TransformerDecoderBase(FairseqIncrementalDecoder):
     def forward(
         self,
         prev_output_tokens,
-        hf_prev_output_token_list,
+        hf_prev_output_token_list:Optional[Dict[str, List[Tensor]]] = None,
         encoder_out: Optional[Dict[str, List[Tensor]]] = None,
         incremental_state: Optional[Dict[str, Dict[str, Optional[Tensor]]]] = None,
         features_only: bool = False,

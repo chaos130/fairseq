@@ -67,6 +67,8 @@ def load_rrhf_dataset(
         print(f'load data from {filename}')
     assert dataset_impl=='raw_json', f'rrhf dtaset only support dataset_impl with raw_json rather than {dataset_impl}'
     rrhfdataset = data_utils.load_indexed_dataset(filename, src_dict, dataset_impl, other_dict=tgt_dict)
+    print(f'load {len([data[0] for data in rrhfdataset])} examples')
+
     
     return LanguagePairRRHFDataset(
         rrhfdataset,

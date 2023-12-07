@@ -81,6 +81,7 @@ def collate(
         left_pad=left_pad_source,
         pad_to_length=pad_to_length["source"] if pad_to_length is not None else None,
     )
+
     # sort by descending source length
     src_lengths = torch.LongTensor(
         [s["source"].ne(pad_idx).long().sum() for s in samples]
@@ -124,11 +125,13 @@ def collate(
     hf_prev_output_token_list = [] #hf_num * [batch * seq_len]
     hf_target_list = [] #
     hf_score_list = [] # hf_num * [batch * 1]
+    #print(samples)
 
     if samples[0].get('hf_target', None) is not None:
         hf_num = len(samples[0]['hf_target'])
         hf_targets = [s['hf_target'] for s in samples]
         hf_scores = [s['hf_score'] for s in samples]
+        
         for hf_id in range(hf_num):
             curr_hf_target = merge_index(hf_targets, hf_id, left_pad=left_pad_target)
             curr_hf_target = curr_hf_target.index_select(0, sort_order)
@@ -138,6 +141,7 @@ def collate(
 
             curr_hf_score = merge_score(hf_scores, hf_id)
             curr_hf_score = curr_hf_score.index_select(0, sort_order)
+            
 
             hf_prev_output_token_list.append(curr_hf_prev_output)
             hf_target_list.append(curr_hf_target)

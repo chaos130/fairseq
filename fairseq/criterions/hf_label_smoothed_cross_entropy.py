@@ -20,6 +20,10 @@ class HFLabelSmoothedCrossEntropyCriterionConfig(FairseqDataclass):
         default=0.0,
         metadata={"help": "epsilon for label smoothing, 0 means no label smoothing"},
     )
+    hf_score_penalty: float = field(
+        default=0.0,
+        metadata={"help": "length_penalty for hf_score_penalty"}
+    )
     report_accuracy: bool = field(
         default=False,
         metadata={"help": "report accuracy metric"},
@@ -38,6 +42,7 @@ def label_smoothed_nll_loss(lprobs, target, epsilon, ignore_index=None, reduce=T
     smooth_loss = -lprobs.sum(dim=-1, keepdim=True)
     if ignore_index is not None:
         pad_mask = target.eq(ignore_index)
+        # print(f'target_pad_mask:{pad_mask}, {pad_mask.size()}')
         nll_loss.masked_fill_(pad_mask, 0.0)
         smooth_loss.masked_fill_(pad_mask, 0.0)
     else:
@@ -60,12 +65,14 @@ class HFLabelSmoothedCrossEntropyCriterion(FairseqCriterion):
         task,
         sentence_avg,
         label_smoothing,
+        hf_score_penalty,
         ignore_prefix_size=0,
         report_accuracy=False,
     ):
         super().__init__(task)
         self.sentence_avg = sentence_avg
         self.eps = label_smoothing
+        self.lpen = hf_score_penalty
         self.ignore_prefix_size = ignore_prefix_size
         self.report_accuracy = report_accuracy
 
@@ -104,33 +111,37 @@ class HFLabelSmoothedCrossEntropyCriterion(FairseqCriterion):
         else:
             return utils.softmax(logits, dim=-1, onnx_trace=False)
 
-    def compute_sentence_probs(self, logits, target, ignore_index=None, length_penalty=0.6):
+###
+    def compute_sentence_probs(self, logits, target, length_penalty, ignore_index=None):
 
         lprobs = self.compute_normalized_probs(logits, log_probs=True)
 
         if target.dim() == lprobs.dim() - 1:
             target = target.unsqueeze(-1)
-        #print(f'probs:{lprobs}, {lprobs.size()}')
-        #print(f'target:{target}, {target.size()}')
+        # print(f'probs:{lprobs}, {lprobs.size()}')
+        # print(f'target:{target}, {target.size()}')
         sent_probs = lprobs.gather(dim=-1, index=target)
-        #print(f'sent_probs:{sent_probs}, {sent_probs.size()}')
+        # print(f'sent_probs:{sent_probs}, {sent_probs.size()}')
 
         sent_length = None
         if ignore_index is not None:
+            # print(f'ignore_index:{ignore_index}')
             pad_mask = target.eq(ignore_index)
             # print(f'pad_mask:{pad_mask}, {pad_mask.size()}')
 
             sent_probs.masked_fill_(pad_mask, 0.0)
-            #print(f'sent_probs:{sent_probs}, {sent_probs.size()}')
+            # print(f'sent_probs:{sent_probs}, {sent_probs.size()}')
             sent_length = torch.sum(~pad_mask.squeeze(-1), dim=-1)
         
         sent_probs = sent_probs.squeeze(-1).sum(dim=-1)
 
         if sent_length is not None:
             sent_probs = sent_probs / sent_length ** length_penalty
-        #rint(f'sent_probs:{sent_probs}, {sent_probs.size()}')
+       #rint(f'sent_probs:{sent_probs}, {sent_probs.size()}')
 
         return sent_probs
+
+
 
     def compute_rrhf_loss(self, model, net_output, sample, reduce=True):
         hf_logit_list = net_output[2]
@@ -147,14 +158,14 @@ class HFLabelSmoothedCrossEntropyCriterion(FairseqCriterion):
 
         sent_prob_list = []
         for hf_logit, hf_target in zip(hf_logit_list, hf_target_list):
-            sent_prob = self.compute_sentence_probs(hf_logit, hf_target, self.padding_idx)
+            sent_prob = self.compute_sentence_probs(hf_logit, hf_target, ignore_index=self.padding_idx, length_penalty=self.lpen)
             sent_prob_list.append(sent_prob)
 
         model_scores = torch.stack(sent_prob_list, 0)
         hf_scores = torch.stack(hf_score_list, 0)
 
         # print(f'model_score:{model_scores}')
-        # print(f'hf_score:{hf_score}')
+        # print(f'hf_score:{hf_scores}')
 
         model_scores = model_scores.transpose(0, 1)
         hf_scores = hf_scores.transpose(0, 1)
@@ -170,7 +181,7 @@ class HFLabelSmoothedCrossEntropyCriterion(FairseqCriterion):
             rrhf_loss += -model_diff[aval].sum().mean()
         # print(f'rrhf_loss: {rrhf_loss}')
 
-        return rrhf_loss 
+        return rrhf_loss / 10
 
     def compute_dpo_loss(self, model, net_output, sample, reduce=True, beta=0.1):
         hf_logit_list = net_output[2]
