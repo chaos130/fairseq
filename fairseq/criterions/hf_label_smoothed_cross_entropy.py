@@ -24,6 +24,10 @@ class HFLabelSmoothedCrossEntropyCriterionConfig(FairseqDataclass):
         default=0.0,
         metadata={"help": "length_penalty for hf_score_penalty"}
     )
+    hf_loss_ratio: int = field(
+         default=1,
+         metadata={"help": "rrhf_loss_ratio"}
+    )
     report_accuracy: bool = field(
         default=False,
         metadata={"help": "report accuracy metric"},
@@ -66,6 +70,7 @@ class HFLabelSmoothedCrossEntropyCriterion(FairseqCriterion):
         sentence_avg,
         label_smoothing,
         hf_score_penalty,
+        hf_loss_ratio,
         ignore_prefix_size=0,
         report_accuracy=False,
     ):
@@ -73,6 +78,7 @@ class HFLabelSmoothedCrossEntropyCriterion(FairseqCriterion):
         self.sentence_avg = sentence_avg
         self.eps = label_smoothing
         self.lpen = hf_score_penalty
+        self.ratio = hf_loss_ratio
         self.ignore_prefix_size = ignore_prefix_size
         self.report_accuracy = report_accuracy
 
@@ -87,7 +93,7 @@ class HFLabelSmoothedCrossEntropyCriterion(FairseqCriterion):
         net_output = model(**sample["net_input"])
         #print(f'net_output:{net_output}')
         loss, nll_loss = self.compute_loss(model, net_output, sample, reduce=reduce)
-        rrhf_loss = self.compute_rrhf_loss(model, net_output, sample, reduce=reduce)
+        rrhf_loss = self.compute_rrhf_loss(model, net_output, sample, ratio=self.ratio,  reduce=reduce)
         sample_size = (
             sample["target"].size(0) if self.sentence_avg else sample["ntokens"]
         )
@@ -143,7 +149,7 @@ class HFLabelSmoothedCrossEntropyCriterion(FairseqCriterion):
 
 
 
-    def compute_rrhf_loss(self, model, net_output, sample, reduce=True):
+    def compute_rrhf_loss(self, model, net_output, sample, ratio, reduce=True):
         hf_logit_list = net_output[2]
         hf_num = len(hf_logit_list)
         # print(f'hf_num:{hf_num}')
@@ -178,10 +184,10 @@ class HFLabelSmoothedCrossEntropyCriterion(FairseqCriterion):
             model_diff = model_scores[i].unsqueeze(0) - model_scores[i].unsqueeze(-1)
             hf_diff = hf_scores[i].unsqueeze(0) - hf_scores[i].unsqueeze(-1)
             aval = torch.bitwise_and(hf_diff>0, model_diff<0)
-            rrhf_loss += -model_diff[aval].sum().mean()
+            rrhf_loss += -model_diff[aval].sum()
         # print(f'rrhf_loss: {rrhf_loss}')
-
-        return rrhf_loss / 10
+        rrhf_loss = rrhf_loss / ratio
+        return rrhf_loss
 
     def compute_dpo_loss(self, model, net_output, sample, reduce=True, beta=0.1):
         hf_logit_list = net_output[2]
@@ -204,7 +210,7 @@ class HFLabelSmoothedCrossEntropyCriterion(FairseqCriterion):
         dpo_loss = 0.0
         for i in range(model_scores.shape[0]):
             pi_logratios = model_scores[i][0] - model_scores[i][1]
-            ref_logratios = hf_scores[i][0] - hf_scores[i][0]
+            ref_logratios = hf_scores[i][0] - hf_scores[i][1]
             dpo_loss += -F.logsigmoid(beta * (pi_logratios - ref_logratios))
 
         return dpo_loss
