@@ -129,7 +129,15 @@ class TransformerModelBase(FairseqEncoderDecoderModel):
         if cfg.offload_activations:
             cfg.checkpoint_activations = True  # offloading implies checkpointing
         encoder = cls.build_encoder(cfg, src_dict, encoder_embed_tokens)
+        for param in encoder.layers[:2].parameters():
+            param.requires_grad = False
+#        for param in encoder_embed_tokens.parameters():
+#            param.requires_grad = False
         decoder = cls.build_decoder(cfg, tgt_dict, decoder_embed_tokens)
+        for param in decoder.layers[:2].parameters():
+            param.requires_grad = False
+#        for param in decoder_embed_tokens.parameters():
+#            param.requires_grad = False
         return cls(cfg, encoder, decoder)
 
     @classmethod

@@ -368,8 +368,8 @@ class LanguagePairRRHFDataset(FairseqDataset):
             "id": index,
             "source": src_item,
             "target": tgt_item_list[0],
-            "hf_target": tgt_item_list[1:],
-            "hf_score": score_item_list[1:]
+            "hf_target": tgt_item_list[2:],
+            "hf_score": score_item_list[2:]
         }
         if self.align_dataset is not None:
             example["alignment"] = self.align_dataset[index]
