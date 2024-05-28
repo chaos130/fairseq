@@ -1,7 +1,7 @@
-train.sh
-envs_dir=/home/tpuuser04/anaconda3/envs/MT_01
+- train.sh
+envs_dir=
 export PATH=$envs_dir/bin:$PATH
-base_dir=/home/tpuuser04/chaos/workplace/Translation
+base_dir=
 codes_dir=$base_dir/codes/fairseq
 datas=$1
 seed=1111
@@ -14,7 +14,7 @@ encoder_layer=6
 decoder_layer=6
 src=en
 tgt=ch
-train_dataset_dir=$base_dir/experiments/experiment-NIST-en-ch-subword-32000-test/finetune/fintune_on_beam_32_metric_bleu/${datas}
+train_dataset_dir=
 export CUDA_VISIBLE_DEVICES=0,1,2,3
 hf_pen=0
 warmup_updates=4000
@@ -22,7 +22,7 @@ ratio=1
 lr=2e-04
 update_freq=2
 echo "begin lr ${lr}"
-save_dir=$base_dir/experiments/experiment-NIST-en-ch-subword-32000-test/finetune/fintune_on_beam_32_metric_bleu/models/debug_$1
+save_dir=$base_dir/
 mkdir -p $save_dir
 echo "begin training based on hf_len is ${hf_pen} batch_size is ${batch_size}"
 python $codes_dir/train.py $train_dataset_dir \
